@@ -24,6 +24,7 @@ git clone https://github.com/alexbers/mtprotoproxy /root/mtprotoproxy
 2. Отправить `/newproxy`
 3. Указать `IP:443`
 4. Отправить чистый секрет без префиксов — 32 hex символа
+
 Команда для генерации:
 ```bash
 python3 -c "import secrets; print(secrets.token_hex(16))"
