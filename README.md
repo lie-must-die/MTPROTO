@@ -23,7 +23,11 @@ git clone https://github.com/alexbers/mtprotoproxy /root/mtprotoproxy
 1. Открыть [@MTProxybot](https://t.me/MTProxybot)
 2. Отправить `/newproxy`
 3. Указать `IP:443`
-4. Отправить чистый секрет без префиксов python3 -c "import secrets; print(secrets.token_hex(16))" — 32 hex символа
+4. Отправить чистый секрет без префиксов — 32 hex символа
+Команда для генерации:
+```bash
+python3 -c "import secrets; print(secrets.token_hex(16))"
+```
 5. Получить AD_TAG → вставить в config.py
 
 ---
