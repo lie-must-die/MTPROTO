@@ -12,6 +12,10 @@ if ! command -v sysbench &>/dev/null; then
     echo "Устанавливаю sysbench..."
     apt-get install -y -q sysbench 2>/dev/null 1>/dev/null
 fi
+if ! command -v fio &>/dev/null; then
+    echo "Устанавливаю fio..."
+    apt-get install -y -q fio 2>/dev/null 1>/dev/null
+fi
 if ! [ -f /snap/bin/speedtest ]; then
     echo "Устанавливаю speedtest (Ookla)..."
     snap install speedtest 2>/dev/null 1>/dev/null
@@ -122,31 +126,62 @@ echo ""
 # ---- 4. Disk I/O ----
 echo -e "${CYAN}[DISK I/O]${NC}"
 DISK_VERDICT="SKIP"
+
+# Sequential write (dd)
 DD_OUT=$(dd if=/dev/zero of=/tmp/vps_test bs=64k count=16k conv=fdatasync 2>&1)
 rm -f /tmp/vps_test
 DISK_LINE=$(echo "$DD_OUT" | grep -E "MB/s|GB/s" | tail -1)
-echo "Raw: $DISK_LINE"
-
 DISK_MBS=$(echo "$DISK_LINE" | grep -oP '[\d.]+(?= MB/s)' | tail -1)
 DISK_GBS=$(echo "$DISK_LINE" | grep -oP '[\d.]+(?= GB/s)' | tail -1)
+[ -n "$DISK_GBS" ] && DISK_MBS=$(echo "$DISK_GBS * 1000" | bc 2>/dev/null || echo "1000")
+echo "Sequential write: ${DISK_MBS:-?} MB/s"
 
-if [ -n "$DISK_GBS" ]; then
-    DISK_MBS=$(echo "$DISK_GBS * 1000" | bc 2>/dev/null || echo "1000")
+# Random write 4K (fio)
+RAND_IOPS=""
+RAND_MBS=""
+if command -v fio &>/dev/null; then
+    FIO_OUT=$(fio --name=randwrite --ioengine=libaio --iodepth=16 \
+        --rw=randwrite --bs=4k --size=128m --numjobs=1 \
+        --runtime=10 --time_based --filename=/tmp/fio_test \
+        --output-format=terse 2>/dev/null)
+    rm -f /tmp/fio_test
+    # terse format: field 49 = write IOPS, field 48 = write BW KB/s
+    RAND_IOPS=$(echo "$FIO_OUT" | awk -F';' '{print $49}' | head -1)
+    RAND_BW=$(echo "$FIO_OUT"   | awk -F';' '{print $48}' | head -1)
+    if [ -n "$RAND_IOPS" ] && [ "$RAND_IOPS" -gt 0 ] 2>/dev/null; then
+        RAND_MBS=$((RAND_BW / 1024))
+        echo "Random write 4K: ${RAND_IOPS} IOPS (${RAND_MBS} MB/s)"
+    fi
 fi
 
-if [ -n "$DISK_MBS" ]; then
-    DISK_INT=${DISK_MBS%.*}
-    if [ "$DISK_INT" -ge 300 ]; then
-        echo -e "Result:    ${GREEN}ОТЛИЧНО (${DISK_MBS} MB/s)${NC}"
+# Verdict based on random write (more realistic)
+if [ -n "$RAND_IOPS" ] && [ "$RAND_IOPS" -gt 0 ] 2>/dev/null; then
+    if [ "$RAND_IOPS" -ge 10000 ]; then
+        echo -e "Result:    ${GREEN}ОТЛИЧНО (${RAND_IOPS} IOPS)${NC}"
         DISK_VERDICT="OK"
-    elif [ "$DISK_INT" -ge 150 ]; then
-        echo -e "Result:    ${GREEN}ХОРОШО (${DISK_MBS} MB/s)${NC}"
+    elif [ "$RAND_IOPS" -ge 3000 ]; then
+        echo -e "Result:    ${GREEN}ХОРОШО (${RAND_IOPS} IOPS)${NC}"
         DISK_VERDICT="OK"
-    elif [ "$DISK_INT" -ge 80 ]; then
-        echo -e "Result:    ${YELLOW}ПРИЕМЛЕМО (${DISK_MBS} MB/s)${NC}"
+    elif [ "$RAND_IOPS" -ge 1000 ]; then
+        echo -e "Result:    ${YELLOW}ПРИЕМЛЕМО (${RAND_IOPS} IOPS)${NC}"
         DISK_VERDICT="WARN"
     else
-        echo -e "Result:    ${RED}ПЛОХО — диск перегружен (${DISK_MBS} MB/s)${NC}"
+        echo -e "Result:    ${RED}ПЛОХО — диск перегружен (${RAND_IOPS} IOPS)${NC}"
+        DISK_VERDICT="BAD"
+    fi
+elif [ -n "$DISK_MBS" ]; then
+    DISK_INT=${DISK_MBS%.*}
+    if [ "$DISK_INT" -ge 300 ]; then
+        echo -e "Result:    ${GREEN}ОТЛИЧНО (seq ${DISK_MBS} MB/s)${NC}"
+        DISK_VERDICT="OK"
+    elif [ "$DISK_INT" -ge 150 ]; then
+        echo -e "Result:    ${GREEN}ХОРОШО (seq ${DISK_MBS} MB/s)${NC}"
+        DISK_VERDICT="OK"
+    elif [ "$DISK_INT" -ge 80 ]; then
+        echo -e "Result:    ${YELLOW}ПРИЕМЛЕМО (seq ${DISK_MBS} MB/s)${NC}"
+        DISK_VERDICT="WARN"
+    else
+        echo -e "Result:    ${RED}ПЛОХО (seq ${DISK_MBS} MB/s)${NC}"
         DISK_VERDICT="BAD"
     fi
 else
