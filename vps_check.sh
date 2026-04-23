@@ -8,17 +8,28 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # Pre-install dependencies silently before any output
+APT_PACKAGES=""
+
+# Проверяем, чего не хватает, и собираем в список
 if ! command -v sysbench &>/dev/null; then
-    echo "Устанавливаю sysbench..."
-    apt-get install -y -q sysbench 2>/dev/null 1>/dev/null
+    APT_PACKAGES="$APT_PACKAGES sysbench"
 fi
+
 if ! command -v fio &>/dev/null; then
-    echo "Устанавливаю fio..."
-    apt-get install -y -q fio 2>/dev/null 1>/dev/null
+    APT_PACKAGES="$APT_PACKAGES fio"
 fi
+
+# Если список apt-пакетов не пустой, обновляем индексы один раз и ставим всё разом
+if [ -n "$APT_PACKAGES" ]; then
+    echo "Устанавливаю пакеты: $APT_PACKAGES..."
+    apt-get update -qq
+    apt-get install -y -qq $APT_PACKAGES >/dev/null 2>&1
+fi
+
+# Установка snap-пакета (apt update для него не нужен)
 if ! [ -f /snap/bin/speedtest ]; then
     echo "Устанавливаю speedtest (Ookla)..."
-    snap install speedtest 2>/dev/null 1>/dev/null
+    snap install speedtest >/dev/null 2>&1
 fi
 echo ""
 
