@@ -9,6 +9,8 @@ NC='\033[0m'
 
 # Pre-install dependencies silently before any output
 APT_PACKAGES=""
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_SUSPEND=1
 
 # Проверяем, чего не хватает, и собираем в список
 if ! command -v sysbench &>/dev/null; then
@@ -34,7 +36,13 @@ if [ -n "$APT_PACKAGES" ]; then
         exit 1
     fi
     
-    apt-get install -y -q $APT_PACKAGES 2>&1
+    if apt-get install -y -q $APT_PACKAGES >>"$APT_LOG" 2>&1 < /dev/null; then
+        printf "apt install: OK\n"
+    else
+        printf "apt install: FAIL\n"
+        cat "$APT_LOG"
+        exit 1
+    fi
 fi
 
 # Установка snap-пакета (apt update для него не нужен)
