@@ -22,8 +22,25 @@ fi
 # Если список apt-пакетов не пустой, обновляем индексы один раз и ставим всё разом
 if [ -n "$APT_PACKAGES" ]; then
     printf "Устанавливаю пакеты:%s...\n" "$APT_PACKAGES"
-    apt-get update -q
-    apt-get install -y -q $APT_PACKAGES >/dev/null 2>&1
+    APT_LOG=$(mktemp)
+    # Гарантируем удаление лога при любом выходе из скрипта (успех, ошибка или Ctrl+C)
+    trap 'rm -f "$APT_LOG"' EXIT
+    
+    if apt-get update -q >"$APT_LOG" 2>&1; then
+        printf "apt update: OK\n"
+    else
+        printf "apt update: FAIL\n"
+        cat "$APT_LOG"
+        exit 1
+    fi
+    
+    if apt-get install -y -q $APT_PACKAGES >>"$APT_LOG" 2>&1; then
+        printf "apt install: OK\n"
+    else
+        printf "apt install: FAIL\n"
+        cat "$APT_LOG"
+        exit 1
+    fi
 fi
 
 # Установка snap-пакета (apt update для него не нужен)
