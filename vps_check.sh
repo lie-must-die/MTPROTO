@@ -22,8 +22,8 @@ fi
 # Если список apt-пакетов не пустой, обновляем индексы один раз и ставим всё разом
 if [ -n "$APT_PACKAGES" ]; then
     printf "Устанавливаю пакеты:%s...\n" "$APT_PACKAGES"
-    apt-get update -qq
-    apt-get install -y -qq $APT_PACKAGES >/dev/null 2>&1
+    apt-get update -q
+    apt-get install -y -q $APT_PACKAGES >/dev/null 2>&1
 fi
 
 # Установка snap-пакета (apt update для него не нужен)
