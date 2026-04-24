@@ -34,7 +34,7 @@ if [ -n "$APT_PACKAGES" ]; then
         exit 1
     fi
     
-    if apt-get install -y -q $APT_PACKAGES >>"$APT_LOG" 2>&1; then
+    if apt-get install -y -q $APT_PACKAGES >>"$APT_LOG" 2>&1 < /dev/null; then
         printf "apt install: OK\n"
     else
         printf "apt install: FAIL\n"
