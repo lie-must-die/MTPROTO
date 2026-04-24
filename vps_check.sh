@@ -21,7 +21,7 @@ fi
 
 # Если список apt-пакетов не пустой, обновляем индексы один раз и ставим всё разом
 if [ -n "$APT_PACKAGES" ]; then
-    echo "Устанавливаю пакеты: $APT_PACKAGES..."
+    printf "Устанавливаю пакеты:%s...\n" "$APT_PACKAGES"
     apt-get update -qq
     apt-get install -y -qq $APT_PACKAGES >/dev/null 2>&1
 fi
